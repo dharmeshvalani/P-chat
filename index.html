@@ -1,50 +1,191 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Chat App</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat App</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: linear-gradient(135deg, #0f172a, #020617);
+  color: white;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  backdrop-filter: blur(10px);
+  background: rgba(30,41,59,0.6);
+  padding: 15px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.chat-box {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  max-width: 70%;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 12px;
+}
+
+.sent {
+  background: rgba(37,99,235,0.8);
+  align-self: flex-end;
+}
+
+.received {
+  background: rgba(30,41,59,0.7);
+  align-self: flex-start;
+}
+
+.meta {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.input-box {
+  display: flex;
+  padding: 10px;
+  backdrop-filter: blur(10px);
+  background: rgba(30,41,59,0.6);
+}
+
+input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 20px;
+  border: none;
+  outline: none;
+}
+
+button {
+  margin-left: 10px;
+  padding: 10px 15px;
+  border-radius: 20px;
+  border: none;
+  background: #2563eb;
+  color: white;
+}
+
+.join {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100vh;
+  padding: 20px;
+}
+
+.typing {
+  font-size: 12px;
+  opacity: 0.7;
+}
+</style>
 </head>
+
 <body>
 
-<h2>Join Room</h2>
-<input id="roomInput" placeholder="Enter Code">
-<button onclick="joinRoom()">Join</button>
+<div id="joinScreen" class="join">
+  <input id="username" placeholder="Enter name">
+  <input id="room" placeholder="Room code">
+  <button onclick="join()">Join</button>
+</div>
 
-<div id="chat" style="display:none;">
-  <h3>Chat</h3>
-  <div id="messages"></div>
-  <input id="msgInput" placeholder="Type message">
-  <button onclick="sendMsg()">Send</button>
+<div id="chatScreen" class="container" style="display:none;">
+  <div class="header">
+    Chat Room <span id="status">● Offline</span>
+  </div>
+
+  <div id="messages" class="chat-box"></div>
+  <div id="typing" class="typing"></div>
+
+  <div class="input-box">
+    <input id="msg" placeholder="Message..." oninput="typing()">
+    <button onclick="send()">Send</button>
+  </div>
 </div>
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
 <script>
-const socket = io("https://p-chat-z47m.onrender.com");
+const socket = io("https://YOUR-BACKEND-URL");
 
-function joinRoom() {
-  const room = document.getElementById("roomInput").value;
-  socket.emit("joinRoom", room);
-  document.getElementById("chat").style.display = "block";
+let name, room, myId = Math.random();
+
+function join() {
+  name = document.getElementById("username").value;
+  room = document.getElementById("room").value;
+
+  socket.emit("joinRoom", { room, name, id: myId });
+
+  document.getElementById("joinScreen").style.display = "none";
+  document.getElementById("chatScreen").style.display = "flex";
 }
 
-function sendMsg() {
-  const msg = document.getElementById("msgInput").value;
-  const room = document.getElementById("roomInput").value;
+function send() {
+  const msg = document.getElementById("msg").value;
+  if (!msg) return;
 
   socket.emit("sendMessage", {
-    roomCode: room,
-    message: msg
+    room,
+    message: msg,
+    name,
+    id: myId,
+    time: new Date().toLocaleTimeString(),
+    seen: false
   });
+
+  document.getElementById("msg").value = "";
 }
 
-socket.on("message", (msg) => {
-  const div = document.createElement("div");
-  div.innerText = msg;
-  document.getElementById("messages").appendChild(div);
+function typing() {
+  socket.emit("typing", { room, name });
+}
+
+socket.on("typing", (data) => {
+  document.getElementById("typing").innerText = data.name + " is typing...";
+  setTimeout(() => document.getElementById("typing").innerText = "", 2000);
 });
 
-socket.on("roomFull", () => {
-  alert("Room is full!");
+socket.on("online", () => {
+  document.getElementById("status").innerText = "● Online";
+});
+
+socket.on("message", (data) => {
+  const div = document.createElement("div");
+
+  div.className = "message " + (data.id === myId ? "sent" : "received");
+
+  div.innerHTML = `
+    <b>${data.name}</b><br>
+    ${data.message}
+    <div class="meta">${data.time} ${data.seen ? "✓✓" : "✓"}</div>
+  `;
+
+  document.getElementById("messages").appendChild(div);
+
+  socket.emit("seen", { room });
+});
+
+socket.on("seen", () => {
+  const metas = document.querySelectorAll(".meta");
+  metas.forEach(m => {
+    if (m.innerText.includes("✓")) {
+      m.innerText = m.innerText.replace("✓", "✓✓");
+    }
+  });
 });
 </script>
 
