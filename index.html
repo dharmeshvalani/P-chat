@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat App</title>
+</head>
+<body>
+
+<h2>Join Room</h2>
+<input id="roomInput" placeholder="Enter Code">
+<button onclick="joinRoom()">Join</button>
+
+<div id="chat" style="display:none;">
+  <h3>Chat</h3>
+  <div id="messages"></div>
+  <input id="msgInput" placeholder="Type message">
+  <button onclick="sendMsg()">Send</button>
+</div>
+
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+<script>
+const socket = io("http://YOUR_BACKEND_URL");
+
+function joinRoom() {
+  const room = document.getElementById("roomInput").value;
+  socket.emit("joinRoom", room);
+  document.getElementById("chat").style.display = "block";
+}
+
+function sendMsg() {
+  const msg = document.getElementById("msgInput").value;
+  const room = document.getElementById("roomInput").value;
+
+  socket.emit("sendMessage", {
+    roomCode: room,
+    message: msg
+  });
+}
+
+socket.on("message", (msg) => {
+  const div = document.createElement("div");
+  div.innerText = msg;
+  document.getElementById("messages").appendChild(div);
+});
+
+socket.on("roomFull", () => {
+  alert("Room is full!");
+});
+</script>
+
+</body>
+</html>
