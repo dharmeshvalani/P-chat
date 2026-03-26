@@ -11,12 +11,12 @@
 
 body {
   margin: 0;
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   background: linear-gradient(135deg, #0f172a, #020617);
   color: white;
 }
 
-/* CENTER SCREEN */
+/* JOIN SCREEN */
 .join {
   display: flex;
   justify-content: center;
@@ -25,7 +25,6 @@ body {
   padding: 15px;
 }
 
-/* CARD */
 .card {
   width: 100%;
   max-width: 400px;
@@ -35,7 +34,6 @@ body {
   padding: 20px;
 }
 
-/* INPUT FIX */
 input {
   width: 100%;
   padding: 12px;
@@ -43,10 +41,9 @@ input {
   border-radius: 12px;
   border: none;
   outline: none;
-  font-size: 14px;
+  font-size: 16px;
 }
 
-/* BUTTON */
 button {
   width: 100%;
   padding: 12px;
@@ -57,35 +54,27 @@ button {
   font-size: 16px;
 }
 
-/* CHAT UI */
+/* CHAT SCREEN */
 .container {
   display: flex;
   flex-direction: column;
   height: 100dvh; /* FIX */
 }
 
-  .chat-box {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  scroll-behavior: smooth;
-}
-
-.input-box {
-  position: sticky;
-  bottom: 0;
-  background: rgba(30,41,59,0.9);
-  padding: 10px;
-}
-
-input {
-  font-size: 16px;
+.header {
+  padding: 15px;
+  text-align: center;
+  background: rgba(30,41,59,0.7);
+  backdrop-filter: blur(10px);
 }
 
 .chat-box {
   flex: 1;
   overflow-y: auto;
   padding: 10px;
+  display: flex;
+  flex-direction: column;
+  scroll-behavior: smooth;
 }
 
 .message {
@@ -106,9 +95,18 @@ input {
   align-self: flex-start;
 }
 
+.meta {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* INPUT FIX */
 .input-box {
+  position: sticky;
+  bottom: 0;
   display: flex;
   padding: 10px;
+  background: rgba(30,41,59,0.9);
 }
 
 .input-box input {
@@ -121,29 +119,17 @@ input {
   margin-left: 10px;
 }
 
-  .chat-box {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  scroll-behavior: smooth;
+.typing {
+  font-size: 12px;
+  padding-left: 10px;
+  opacity: 0.7;
 }
-
-.input-box {
-  position: sticky;
-  bottom: 0;
-  background: rgba(30,41,59,0.9);
-  padding: 10px;
-}
-
-input {
-  font-size: 16px;
-}
-  
 </style>
 </head>
 
 <body>
 
+<!-- JOIN SCREEN -->
 <div id="joinScreen" class="join">
   <div class="card">
     <h3>Join Chat</h3>
@@ -153,6 +139,7 @@ input {
   </div>
 </div>
 
+<!-- CHAT SCREEN -->
 <div id="chatScreen" class="container" style="display:none;">
   <div class="header">
     Chat Room <span id="status">● Offline</span>
@@ -162,7 +149,7 @@ input {
   <div id="typing" class="typing"></div>
 
   <div class="input-box">
-    <input id="msg" placeholder="Message..." oninput="typing()">
+    <input id="msg" placeholder="Message..." oninput="typingEvent()">
     <button onclick="send()">Send</button>
   </div>
 </div>
@@ -170,19 +157,16 @@ input {
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
 <script>
-
-  function scrollToBottom() {
-  const chat = document.getElementById("messages");
-  chat.scrollTop = chat.scrollHeight;
-  }
-  
-const socket = io("https://p-chat-z47m.onrender.com");
+const socket = io("https://YOUR-BACKEND-URL"); // 🔥 replace this
 
 let name, room, myId = Math.random();
 
+/* JOIN */
 function join() {
   name = document.getElementById("username").value;
   room = document.getElementById("room").value;
+
+  if (!name || !room) return alert("Enter details");
 
   socket.emit("joinRoom", { room, name, id: myId });
 
@@ -190,6 +174,7 @@ function join() {
   document.getElementById("chatScreen").style.display = "flex";
 }
 
+/* SEND MESSAGE */
 function send() {
   const msg = document.getElementById("msg").value;
   if (!msg) return;
@@ -206,15 +191,18 @@ function send() {
   document.getElementById("msg").value = "";
 }
 
-function typing() {
+/* TYPING */
+function typingEvent() {
   socket.emit("typing", { room, name });
 }
 
-socket.on("typing", (data) => {
-  document.getElementById("typing").innerText = data.name + " is typing...";
-  setTimeout(() => document.getElementById("typing").innerText = "", 2000);
-});
+/* SCROLL FIX */
+function scrollToBottom() {
+  const chat = document.getElementById("messages");
+  chat.scrollTop = chat.scrollHeight;
+}
 
+/* RECEIVE MESSAGE */
 socket.on("message", (data) => {
   const div = document.createElement("div");
 
@@ -223,20 +211,28 @@ socket.on("message", (data) => {
   div.innerHTML = `
     <b>${data.name}</b><br>
     ${data.message}
-    <div class="meta">${data.time}</div>
+    <div class="meta">${data.time} ${data.seen ? "✓✓" : "✓"}</div>
   `;
 
-  const chat = document.getElementById("messages");
-  chat.appendChild(div);
-
-  scrollToBottom(); // 🔥 ADD THIS LINE
-});
-
   document.getElementById("messages").appendChild(div);
+
+  scrollToBottom();
 
   socket.emit("seen", { room });
 });
 
+/* TYPING SHOW */
+socket.on("typing", (data) => {
+  document.getElementById("typing").innerText = data.name + " is typing...";
+  setTimeout(() => document.getElementById("typing").innerText = "", 1500);
+});
+
+/* ONLINE */
+socket.on("online", () => {
+  document.getElementById("status").innerText = "● Online";
+});
+
+/* SEEN */
 socket.on("seen", () => {
   const metas = document.querySelectorAll(".meta");
   metas.forEach(m => {
@@ -246,10 +242,10 @@ socket.on("seen", () => {
   });
 });
 
-  window.addEventListener("resize", () => {
+/* KEYBOARD FIX */
+window.addEventListener("resize", () => {
   document.querySelector(".container").style.height = window.innerHeight + "px";
 });
-  
 </script>
 
 </body>
